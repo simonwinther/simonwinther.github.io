@@ -1,6 +1,0 @@
-[submodule "themes/introduction"]
-	path = themes/introduction
-	url = https://github.com/victoriadrake/hugo-theme-introduction.git
-[submodule "themes/soho"]
-	path = themes/soho
-	url = https://github.com/alexandrevicenzi/soho.git
