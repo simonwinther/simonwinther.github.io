@@ -502,42 +502,129 @@
     return [lerp(c0[0],c1[0],t)|0, lerp(c0[1],c1[1],t)|0, lerp(c0[2],c1[2],t)|0];
   }
 
+  // stable pseudo-random per grid cell (fract-sin hash) -> fixed pattern, smooth motion
+  function hash(i,j){ var n = Math.sin(i*127.1 + j*311.7) * 43758.5453; return n - Math.floor(n); }
+
+  // ---- flow noise: smooth value noise + fractal sum (fBm) ----
+  // this is what makes the motion organic & non-repeating instead of robotic sines
+  function vnoise(x,y){
+    var ix=Math.floor(x), iy=Math.floor(y), fx=x-ix, fy=y-iy;
+    var ux=fx*fx*(3-2*fx), uy=fy*fy*(3-2*fy);          // smoothstep
+    var a=hash(ix,iy), b=hash(ix+1,iy), c=hash(ix,iy+1), d=hash(ix+1,iy+1);
+    return a + (b-a)*ux + (c-a)*uy + (a-b-c+d)*ux*uy;  // 0..1
+  }
+  function fbm(x,y){
+    var v=0, amp=0.5, f=1;
+    for(var o=0;o<4;o++){ v += amp*vnoise(x*f, y*f); f*=2; amp*=0.5; }
+    return v*1.07;                                      // ~0..1
+  }
+
   function Wave(canvas, fadeDown){
     var ctx = canvas.getContext && canvas.getContext('2d'); if(!ctx) return;
-    var W=0, H=0, dpr=1, gap=15, t0=performance.now(), raf=0;
+    var W=0, H=0, dpr=1, gap=15, cells=[], t0=performance.now(), raf=0;
+    var colX=[], colDisp=null, colH=null, colBri=null, ncols=0;
+
+    function build(){
+      cells = []; colX = [];
+      gap = W < 560 ? 16 : 14;
+      var col = -1;
+      for(var x=gap*0.5; x<W; x+=gap){
+        col++; colX.push(x);
+        for(var y=gap*0.5; y<H; y+=gap){
+          var ix = Math.round(x/gap), iy = Math.round(y/gap);
+          var fade = fadeDown ? 1-(y/H) : (y/H);
+          if(fade < 0) fade = 0; fade *= fade;
+          if(fade < 0.02) continue;
+          var r1 = hash(ix, iy);              // phase + shape
+          var r2 = hash(ix+11.3, iy*1.7+4.1); // size
+          var r3 = hash(ix*0.7+5.5, iy+8.2);  // twinkle speed
+          // most are dots; a sprinkle of triangles and dark-centre rings
+          var shape = r1 < 0.12 ? 2 : (r1 > 0.90 ? 1 : 0);
+          cells.push({
+            x:x, y:y, fade:fade, col:col,
+            ph: r1*6.283,                      // twinkle phase offset
+            sz: 0.4 + r2*r2*0.85,              // smaller + capped — no oversized blobs
+            tw: 1.6 + r3*3.4,                  // individual twinkle rate
+            shape: shape,
+            spin: (r2-0.5)*0.8                 // triangle drift
+          });
+        }
+      }
+      ncols = colX.length;
+      colDisp = new Float32Array(ncols);
+      colH    = new Float32Array(ncols);
+      colBri  = new Float32Array(ncols);
+    }
     function resize(){
       dpr = Math.min(window.devicePixelRatio||1, 2);
       W = canvas.clientWidth; H = canvas.clientHeight;
       canvas.width = Math.max(1,W*dpr); canvas.height = Math.max(1,H*dpr);
       ctx.setTransform(dpr,0,0,dpr,0,0);
-      gap = W < 560 ? 17 : 15;
+      build();
+    }
+    function tri(cx,cy,s,rot){
+      ctx.beginPath();
+      for(var k=0;k<3;k++){
+        var an = rot + k*2.0944;
+        var px = cx + Math.cos(an)*s, py = cy + Math.sin(an)*s;
+        if(k===0) ctx.moveTo(px,py); else ctx.lineTo(px,py);
+      }
+      ctx.closePath(); ctx.fill();
     }
     function draw(now){
       var t = (now - t0)/1000;
       ctx.clearRect(0,0,W,H);
       ctx.globalCompositeOperation = 'lighter';
-      var hueT = t*0.05;                       // slow march through the palette
-      for(var x=gap*0.5; x<W; x+=gap){
-        // base hue: mostly one colour, gentle spread toward the next
-        var col = colorAt(hueT + x*0.00028);
+      var hueT = t*0.05;                                   // slow march through palette
+      var breath = 0.8 + 0.2*Math.sin(t*0.5);              // whole-band swell (pulsing)
+      var breath2 = 0.9 + 0.1*Math.sin(t*0.3 + 1.7);
+
+      // --- precompute organic flow-noise per column (cheap; shared down each column) ---
+      // x-axis = space; one time term drifts the field sideways, another morphs its shape,
+      // so the pattern flows AND reshapes -> never repeats, no predictable up/down rhythm.
+      var driftA = t*0.10, morphA = t*0.28;
+      var driftB = -t*0.04, morphB = t*0.13;
+      for(var k=0;k<ncols;k++){
+        var x = colX[k];
+        colDisp[k] = (fbm(x*0.011 + driftA, morphA) - 0.5) * 2;          // -1..1 undulation
+        var envN   =  fbm(x*0.004 + driftB, morphB + 11.3);              // 0..1, slow
+        colH[k]    = (3 + 30*envN*envN) * breath;                        // crest height, very uneven
+        colBri[k]  =  fbm(x*0.011 + driftA + 5.7, morphA + 2.1);         // 0..1 brightness flow
+      }
+
+      for(var i=0;i<cells.length;i++){
+        var c = cells[i];
+        var col = colorAt(hueT + c.x*0.00028);
         var r=col[0], g=col[1], b=col[2];
-        for(var y=gap*0.5; y<H; y+=gap){
-          // two travelling waves -> organic "thinking" pulse
-          var w = Math.sin(x*0.016 - t*1.5) + Math.sin((x*0.009 + y*0.03) - t*0.9);
-          var amp = (w*0.25 + 0.5);            // 0..1
-          if(amp < 0.04) continue;
-          var fade = fadeDown ? 1-(y/H) : (y/H);
-          fade = fade<0?0:fade; fade = fade*fade;
-          var a = amp*amp*fade*0.95;
-          if(a < 0.015) continue;
-          var rad = 0.9 + amp*2.0;
-          // halo
-          ctx.globalAlpha = a*0.30;
-          ctx.fillStyle = 'rgb('+r+','+g+','+b+')';
-          ctx.beginPath(); ctx.arc(x,y,rad*2.3,0,6.283); ctx.fill();
-          // core
-          ctx.globalAlpha = a;
-          ctx.beginPath(); ctx.arc(x,y,rad,0,6.283); ctx.fill();
+
+        var disp = colDisp[c.col];
+        var yy = c.y + disp*colH[c.col] + (vnoise(c.x*0.05, c.y*0.08 + t*0.6)-0.5)*3; // tiny per-dot jitter
+        // brightness: column flow + crest lift + independent per-dot twinkle
+        var crest = disp*0.5 + 0.5;
+        var twk = Math.sin(t*c.tw + c.ph)*0.5 + 0.5;
+        var amp = (0.36 + 0.52*colBri[c.col] + 0.26*crest) * (0.62 + 0.38*twk) * breath;
+        if(amp > 1) amp = 1;
+        var a = amp*amp * c.fade * 1.2;
+        if(a < 0.012) continue;
+
+        var rad = (0.6 + amp*1.1) * c.sz * breath2;
+        if(rad > 2.8) rad = 2.8;
+        if(rad < 0.3) continue;
+
+        // soft glow halo (same for every shape)
+        ctx.globalAlpha = a*0.30;
+        ctx.fillStyle = 'rgb('+r+','+g+','+b+')';
+        ctx.beginPath(); ctx.arc(c.x, yy, rad*2.3, 0, 6.283); ctx.fill();
+        // core
+        ctx.globalAlpha = a;
+        if(c.shape === 0){                                  // dot
+          ctx.beginPath(); ctx.arc(c.x, yy, rad, 0, 6.283); ctx.fill();
+        } else if(c.shape === 2){                           // triangle
+          tri(c.x, yy, rad*1.5, c.ph + t*c.spin);
+        } else {                                            // ring (dark centre)
+          ctx.lineWidth = Math.max(0.5, rad*0.5);
+          ctx.strokeStyle = 'rgb('+r+','+g+','+b+')';
+          ctx.beginPath(); ctx.arc(c.x, yy, rad*1.1, 0, 6.283); ctx.stroke();
         }
       }
       ctx.globalAlpha = 1;
