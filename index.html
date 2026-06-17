@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>simon winther</title>
+<meta name="description" content="Simon Winther — MSc Computer Science (ML), University of Copenhagen. Medical imaging, deep learning, software.">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#0a0a0b">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Simon Winther">
+<meta property="og:description" content="MSc Computer Science (ML), University of Copenhagen — deep learning, medical imaging, software.">
+<meta property="og:url" content="https://simonwinther.github.io">
+<meta name="twitter:card" content="summary">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230e1011'/%3E%3Ctext x='4' y='23' font-family='monospace' font-size='18' font-weight='700' fill='%238ec07c'%3E%3E_%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0a0a0b; --surface:#111314; --line:#1d2021;
+    --text:#c5c8c6; --dim:#6c7079;
+    --blue:#1793d1; --blue-bright:#33a4e8;
+    --green:#8ec07c; --yellow:#d8a657; --red:#cc6666;
+    --mono:"JetBrains Mono",ui-monospace,"Cascadia Code","Fira Code",Menlo,Consolas,monospace;
+    color-scheme:dark;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{overflow-x:hidden}
+  html{scroll-behavior:smooth}
+  body{
+    background:var(--bg); color:var(--text); font-family:var(--mono);
+    font-size:15px; line-height:1.65; -webkit-font-smoothing:antialiased;
+    min-height:100vh; height:100dvh; margin:0;
+    padding:0 clamp(14px,4vw,40px);
+    display:flex; align-items:center; justify-content:center;
+    overflow:hidden;
+  }
+  a{color:var(--blue-bright);text-decoration:none;border-bottom:1px solid transparent}
+  a:hover{border-bottom-color:var(--blue-bright)}
+  a:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+
+  /* ---- particle wave bands (full-bleed, in flow) ---- */
+  .wave{
+    position:fixed; left:0; right:0; width:100%;
+    height:108px; pointer-events:none; z-index:0; filter:blur(.5px);
+    -webkit-mask-image:linear-gradient(to right, transparent, #000 7%, #000 93%, transparent);
+            mask-image:linear-gradient(to right, transparent, #000 7%, #000 93%, transparent);
+  }
+  .wave.top{top:0}
+  .wave.bot{bottom:0}
+
+  /* window chrome */
+  .term{position:relative;z-index:1;width:min(880px,100%);
+    height:clamp(340px, calc(100dvh - 210px), 780px);
+    display:flex;flex-direction:column;
+    border:1px solid var(--line);border-radius:6px;background:var(--surface);overflow:hidden}
+  .bar{flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--line);background:#0e1011}
+  .dot{width:11px;height:11px;border-radius:50%}
+  .dot.r{background:#cc6666}.dot.y{background:#d8a657}.dot.g{background:#8ec07c}
+  .bar .path{margin-left:8px;color:var(--dim);font-size:13px}
+  .body{flex:1 1 auto;overflow-y:auto;overflow-x:hidden;padding:clamp(16px,3.5vw,28px);
+    scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+  .body::-webkit-scrollbar{width:9px}
+  .body::-webkit-scrollbar-thumb{background:var(--line);border-radius:5px}
+  .body::-webkit-scrollbar-thumb:hover{background:#2a2f31}
+  .body::-webkit-scrollbar-track{background:transparent}
+
+  /* neofetch */
+  .fetch{display:flex;gap:clamp(16px,4vw,32px);flex-wrap:wrap;align-items:flex-start}
+  .pfp-wrap{position:relative;width:118px;height:118px;flex:0 0 auto;border:1px solid var(--line);
+    border-radius:4px;overflow:hidden;background:#0e1416;display:grid;place-items:center}
+  .pfp-ph{font-size:36px;font-weight:700;color:var(--blue);letter-spacing:3px;opacity:.9}
+  .pfp{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:grayscale(.15) contrast(1.02)}
+  .logo{color:var(--blue);font-size:11px;line-height:1.15;white-space:pre;user-select:none;flex:0 0 auto}
+  .info{min-width:230px;flex:1}
+  .info .who{color:var(--blue-bright);font-weight:700}
+  .info .who b{color:var(--green)}
+  .info hr{border:0;border-top:1px solid var(--line);margin:4px 0 8px}
+  .info dl{display:grid;grid-template-columns:auto 1fr;gap:2px 14px}
+  .info dt{color:var(--blue);font-weight:500;white-space:nowrap}
+  .info dd{color:var(--text)}
+  .swatch{margin-top:14px;display:flex;gap:6px}
+  .swatch span{width:18px;height:18px;border-radius:3px;display:inline-block}
+
+  /* command output rows */
+  p{margin-bottom:12px}
+  .muted{color:var(--dim)}
+  .ok{color:var(--green)}
+  .row{display:grid;grid-template-columns:1fr auto;gap:4px 18px;padding:11px 0;border-top:1px solid var(--line)}
+  .row:first-child{border-top:0;padding-top:2px}
+  .row .title{color:var(--text);font-weight:500}
+  .row .org{color:var(--blue-bright)}
+  .row .when{color:var(--dim);font-size:13px;text-align:right;white-space:nowrap}
+  .row .desc{grid-column:1/-1;color:var(--dim);font-size:13.5px;margin-top:3px}
+  .row .desc a{font-size:13.5px}
+  .tags{margin-top:6px;display:flex;flex-wrap:wrap;gap:6px}
+  .tag{color:var(--green);border:1px solid var(--line);border-radius:3px;padding:1px 8px;font-size:12.5px}
+
+  /* interactive terminal */
+  .histline{margin:16px 0 2px}
+  .histline .hcmd{color:#eaecef;white-space:pre-wrap}
+  .prompt{color:var(--green);font-weight:700;white-space:pre}
+  .prompt .arr{color:var(--blue-bright)}
+  .result{margin-bottom:2px}
+  .result .err{color:var(--red)}
+  .grid2{display:grid;grid-template-columns:auto 1fr;gap:3px 22px}
+  .lsout{display:flex;flex-wrap:wrap;gap:6px 22px}
+  .lsout .dir{color:var(--blue-bright);font-weight:500}
+
+  .inputline{display:flex;align-items:baseline;margin-top:16px;min-height:1.6em}
+  .field{position:relative;flex:1 1 auto;min-width:0;font-size:16px}
+  .overlay{position:absolute;left:0;top:0;right:0;pointer-events:none;
+    white-space:pre-wrap;word-break:break-word;font:inherit}
+  .pad{visibility:hidden}
+  .ghost{color:#8b9299}
+  #cli{display:block;width:100%;background:transparent;border:0;outline:none;
+    font:inherit;color:#eaecef;caret-color:var(--green);padding:0;margin:0}
+
+  @media (max-width:560px){
+    body{font-size:14px}
+    .logo{font-size:9px}
+    .row{grid-template-columns:1fr}
+    .row .when{text-align:left}
+    .wave{height:86px}
+    .term{height:clamp(320px, calc(100dvh - 172px), 780px)}
+  }
+  @media (prefers-reduced-motion:reduce){.wave{filter:blur(.5px)}}
+</style>
+</head>
+<body>
+
+<canvas class="wave top" id="wave-top"></canvas>
+
+<div class="term">
+  <div class="bar">
+    <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="path">simon@arch:~</span>
+  </div>
+  <div class="body" id="screen">
+    <div id="output"></div>
+    <div class="inputline" id="inputline">
+      <span class="prompt">simon@arch <span class="arr">&#10095;</span> </span>
+      <span class="field">
+        <span class="overlay" aria-hidden="true"><span class="pad" id="pad"></span><span class="ghost" id="ghost"></span></span>
+        <input id="cli" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="terminal input">
+      </span>
+    </div>
+  </div>
+</div>
+
+<canvas class="wave bot" id="wave-bot"></canvas>
+
+<!-- ============ content templates (printed by commands) ============ -->
+
+<template id="tpl-neofetch">
+  <div class="fetch">
+    <div class="pfp-wrap">
+      <span class="pfp-ph">SW</span>
+      <img class="pfp" src="./pfp.jpg" alt="Simon Winther" onerror="this.remove()">
+    </div>
+<pre class="logo">                  -`
+                 .o+`
+                `ooo/
+               `+oooo:
+              `+oooooo:
+              -+oooooo+:
+            `/:-:++oooo+:
+           `/++++/+++++++:
+          `/++++++++++++++:
+         `/+++ooooooooooooo/`
+        ./ooosssso++osssssso+`
+       .oossssso-````/ossssss+`
+      -osssssso.      :ssssssso.
+     :osssssss/        osssso+++.
+    /ossssssss/        +ssssooo/-
+  `/ossssso+/:-        -:/+osssso+-
+ `+sso+:-`                 `.-/+oso:
+`++:.                           `-/+/
+.`                                 `/</pre>
+    <div class="info">
+      <div class="who">simon<b>@</b>arch</div>
+      <hr>
+      <dl>
+        <dt>user</dt><dd>Simon Winther (Albertsen)</dd>
+        <dt>host</dt><dd>University of Copenhagen &middot; DIKU</dd>
+        <dt>os</dt><dd>MSc Computer Science &mdash; ML track</dd>
+        <dt>uptime</dt><dd>25 years</dd>
+        <dt>shell</dt><dd>data science &middot; ai &middot; software</dd>
+        <dt>wm</dt><dd>devops &rarr; mlops</dd>
+        <dt>locale</dt><dd>Copenhagen, Denmark</dd>
+        <dt>pkgs</dt><dd>writing code since age 15 (minecraft)</dd>
+        <dt>cpu</dt><dd>PyTorch &middot; Deep Learning</dd>
+        <dt>mem</dt><dd>Java &middot; Spring Boot &middot; Python &middot; React</dd>
+      </dl>
+      <div class="swatch">
+        <span style="background:#1d2021"></span><span style="background:#cc6666"></span>
+        <span style="background:#8ec07c"></span><span style="background:#d8a657"></span>
+        <span style="background:#1793d1"></span><span style="background:#d3869b"></span>
+        <span style="background:#89b482"></span><span style="background:#c5c8c6"></span>
+      </div>
+    </div>
+  </div>
+</template>
+
+<template id="tpl-about">
+  <p>Computer science MSc student at the University of Copenhagen, on the machine
+  learning track. My dev journey started at 15 writing scripts for Minecraft and
+  turned into a real interest in deep learning, MLOps, and building software that
+  holds up. Lately most of my work sits at the edge of deep learning and medical
+  imaging.</p>
+  <p class="muted">Always honing the craft &mdash; academic projects, papers, and
+  whatever I'm tinkering with on GitHub.</p>
+</template>
+
+<template id="tpl-research">
+  <div class="row">
+    <div class="title">RARE-UNet</div>
+    <div class="when">MICCAI 2025 &middot; Efficient Medical AI</div>
+    <div class="org">Resolution-Aligned Routing Entry for Adaptive Medical Image Segmentation</div>
+    <div class="desc">A resolution-aware 3D U-Net that routes inputs straight to the
+      encoder depth matching their spatial resolution &mdash; no resampling. Dice 0.84
+      (hippocampus) / 0.65 (brain tumor) across scales, up to 4&times; faster inference
+      at half resolution.
+      <br>&rarr; <a href="https://arxiv.org/abs/2507.15524" target="_blank" rel="noopener">arXiv:2507.15524</a>
+      &nbsp;&middot;&nbsp; <a href="https://github.com/simonwinther/RARE-UNet" target="_blank" rel="noopener">github/RARE-UNet</a>
+      <div class="tags"><span class="tag">PyTorch</span><span class="tag">Deep Learning</span><span class="tag">Medical Imaging</span><span class="tag">Segmentation</span></div>
+    </div>
+  </div>
+  <div class="row">
+    <div class="title">Bachelor Thesis</div>
+    <div class="when">UCPH &middot; grade 12</div>
+    <div class="org">Multiscale 3D Brain MRI Segmentation with Deep Learning Models</div>
+    <div class="desc">A 3D U-Net built from scratch with a novel multiscale mechanism
+      for scans of varying resolution. The prototype RARE-UNet grew out of. Defended
+      June 2025 at the Pioneer Centre for AI.
+      <div class="tags"><span class="tag">3D U-Net</span><span class="tag">Deep Supervision</span><span class="tag">MRI</span></div>
+    </div>
+  </div>
+  <div class="row">
+    <div class="title">FOMO26</div>
+    <div class="when">MICCAI 2026</div>
+    <div class="org">Foundation Model Challenge for Brain MRI</div>
+    <div class="desc">Contributor &mdash; large-scale self-supervised pretraining
+      (FOMO300K, 306k scans) benchmarked few-shot across seven downstream tasks.</div>
+  </div>
+</template>
+
+<template id="tpl-experience">
+  <div class="row">
+    <div class="title">Junior Software Engineer</div>
+    <div class="when">apr 2023 &ndash; may 2024</div>
+    <div class="org">Acto ApS</div>
+    <div class="desc">Backend work in Java &amp; Spring Boot &mdash; JPA, Lombok, and ~20 more.
+      <div class="tags"><span class="tag">Java</span><span class="tag">Spring Boot</span><span class="tag">JPA</span></div>
+    </div>
+  </div>
+  <div class="row">
+    <div class="title">Receptionist &middot; customer service</div>
+    <div class="when">jun 2021 &ndash; mar 2023</div>
+    <div class="org">DSB</div>
+  </div>
+  <div class="row">
+    <div class="title">Shop assistant &middot; closing lead</div>
+    <div class="when">may 2021 &ndash; aug 2022</div>
+    <div class="org">OK a.m.b.a.</div>
+  </div>
+  <div class="row">
+    <div class="title">Kitchen &middot; dishwashing</div>
+    <div class="when">2017 &ndash; 2020</div>
+    <div class="org">Nyborg Destilleri</div>
+  </div>
+</template>
+
+<template id="tpl-education">
+  <div class="row">
+    <div class="title">MSc Computer Science &mdash; ML Study Track</div>
+    <div class="when">2025 &ndash; 2027</div>
+    <div class="org">University of Copenhagen</div>
+    <div class="desc muted">NLP &middot; Advanced Computer Systems &middot; Advanced Algorithms &amp; Data Structures &middot; Advanced Programming</div>
+  </div>
+  <div class="row">
+    <div class="title">BSc Computer Science (Math &amp; Datalogi)</div>
+    <div class="when">2022 &ndash; 2025 &middot; grade 12</div>
+    <div class="org">University of Copenhagen</div>
+    <div class="desc muted">Machine Learning A &middot; Deep Learning &middot; Algorithms &amp; Data Structures &middot; Databases &middot; Programming Language Design</div>
+  </div>
+</template>
+
+<template id="tpl-skills">
+  <div class="tags" style="margin-top:0">
+    <span class="tag">Python</span><span class="tag">PyTorch</span><span class="tag">Deep Learning</span>
+    <span class="tag">Java</span><span class="tag">Spring Boot</span><span class="tag">React</span>
+    <span class="tag">JPA</span><span class="tag">LaTeX</span><span class="tag">DevOps</span><span class="tag">MLOps</span>
+    <span class="tag">Git</span><span class="tag">Medical Imaging</span>
+  </div>
+</template>
+
+<template id="tpl-links">
+  <div class="row">
+    <div class="title"><a href="https://github.com/simonwinther" target="_blank" rel="noopener">github.com/simonwinther</a></div>
+    <div class="org">code</div>
+  </div>
+  <div class="row">
+    <div class="title"><a href="https://www.linkedin.com/in/simonwintheralbertsen" target="_blank" rel="noopener">linkedin.com/in/simonwintheralbertsen</a></div>
+    <div class="org">the professional-network one</div>
+  </div>
+</template>
+
+<script>
+/* ---------------- interactive terminal ---------------- */
+(function(){
+  var output = document.getElementById('output');
+  var cli = document.getElementById('cli');
+  var pad = document.getElementById('pad');
+  var ghostEl = document.getElementById('ghost');
+  var inputline = document.getElementById('inputline');
+  var screen = document.getElementById('screen');
+
+  function tpl(id){ return document.getElementById(id).innerHTML; }
+
+  var CMDS = [
+    ['about','bio'],
+    ['research','papers & projects'],
+    ['experience','work history'],
+    ['education','degrees'],
+    ['skills','the stack'],
+    ['links','github / linkedin'],
+    ['theme','rice the colors'],
+    ['neofetch','print the header again'],
+    ['ls','list sections'],
+    ['help','this list'],
+    ['clear','clear the screen']
+  ];
+  var ALIAS = { projects:'research', work:'experience', edu:'education', contact:'links', cv:'experience' };
+  var SUGGEST = CMDS.map(function(c){return c[0];}).concat(Object.keys(ALIAS));
+
+  var RUN = {
+    about:      function(){ return tpl('tpl-about'); },
+    research:   function(){ return tpl('tpl-research'); },
+    experience: function(){ return tpl('tpl-experience'); },
+    education:  function(){ return tpl('tpl-education'); },
+    skills:     function(){ return tpl('tpl-skills'); },
+    links:      function(){ return tpl('tpl-links'); },
+    neofetch:   function(){ return tpl('tpl-neofetch'); },
+    ls:         function(){ return lsOut(); },
+    help:       function(){ return helpOut(); },
+    whoami:     function(){ return 'simon'; },
+    pwd:        function(){ return '/home/simon'; },
+    date:       function(){ return new Date().toString(); },
+    sudo:       function(){ return '<span class="muted">simon is not in the sudoers file. This incident will be reported.</span>'; },
+    echo:       function(a){ return esc(a.join(' ')); }
+  };
+
+  var THEMES = {
+    arch:       {bg:'#0a0a0b',surface:'#111314',line:'#1d2021',text:'#c5c8c6',dim:'#6c7079',blue:'#1793d1','blue-bright':'#33a4e8',green:'#8ec07c',yellow:'#d8a657',red:'#cc6666'},
+    gruvbox:    {bg:'#282828',surface:'#32302f',line:'#3c3836',text:'#ebdbb2',dim:'#928374',blue:'#83a598','blue-bright':'#83a598',green:'#b8bb26',yellow:'#fabd2f',red:'#fb4934'},
+    nord:       {bg:'#2e3440',surface:'#3b4252',line:'#434c5e',text:'#d8dee9',dim:'#7b88a1',blue:'#81a1c1','blue-bright':'#88c0d0',green:'#a3be8c',yellow:'#ebcb8b',red:'#bf616a'},
+    dracula:    {bg:'#282a36',surface:'#2d2f3b',line:'#44475a',text:'#f8f8f2',dim:'#6272a4',blue:'#bd93f9','blue-bright':'#8be9fd',green:'#50fa7b',yellow:'#f1fa8c',red:'#ff5555'},
+    tokyonight: {bg:'#1a1b26',surface:'#1f2335',line:'#2a2e42',text:'#c0caf5',dim:'#565f89',blue:'#7aa2f7','blue-bright':'#7dcfff',green:'#9ece6a',yellow:'#e0af68',red:'#f7768e'}
+  };
+  function applyTheme(name){
+    var th = THEMES[name]; if(!th) return false;
+    var r = document.documentElement;
+    for(var k in th){ r.style.setProperty('--'+k, th[k]); }
+    return true;
+  }
+  RUN.theme = function(a){
+    var name = (a[0]||'').toLowerCase();
+    var names = Object.keys(THEMES);
+    if(!name){
+      return 'usage: theme &lt;name&gt;<br><span class="muted">available &middot; </span>'
+        + names.map(function(n){return '<span class="ok">'+n+'</span>';}).join('  ');
+    }
+    if(applyTheme(name)) return '<span class="muted">theme &rarr; </span><span class="ok">'+esc(name)+'</span>';
+    return '<span class="err">unknown theme: '+esc(name)+'</span><br><span class="muted">try &middot; '+names.join('  ')+'</span>';
+  };
+
+  // hidden arch-flavoured easter eggs (not in help / autocomplete)
+  RUN.uname  = function(){ return 'Linux arch 6.12.1-arch1-1 x86_64 GNU/Linux'; };
+  RUN.uptime = function(){ return 'up 25 years,  load average: deep_learning, caffeine, curiosity'; };
+  RUN.pacman = function(){ return ':: Synchronizing package databases...<br>:: simon is up to date &mdash; reinstalling (simon 25.0.0-1)'; };
+  RUN.yay    = function(){ return ' -&gt; there is nothing to do<br><span class="muted">simon/stable is already the newest version</span>'; };
+  RUN.vim    = function(){ return "you made it out of vim. take the win."; };
+  RUN[':q']  = function(){ return 'not in vim, but the reflex is strong.'; };
+  RUN.sl     = function(){ return 'choo choo. (you probably meant <span class="ok">ls</span>)'; };
+  RUN.cowsay = function(a){
+    var m = a.join(' ') || 'arch btw';
+    var bar = function(c){ return ' ' + new Array(m.length+3).join(c); };
+    var cow = bar('_') + '\n< ' + m + ' >\n' + bar('-')
+      + '\n        \\   ^__^'
+      + '\n         \\  (oo)\\_______'
+      + '\n            (__)\\       )\\/\\'
+      + '\n                ||----w |'
+      + '\n                ||     ||';
+    return '<pre style="margin:0;line-height:1.25;color:var(--text)">'+esc(cow)+'</pre>';
+  };
+
+  function helpOut(){
+    return '<div class="grid2">'+CMDS.map(function(c){
+      return '<span class="ok">'+c[0]+'</span><span class="muted">'+c[1]+'</span>';
+    }).join('')+'</div>';
+  }
+  function lsOut(){
+    return '<div class="lsout"><span class="file">about.txt</span><span class="dir">research/</span>'
+      + '<span class="dir">experience/</span><span class="file">education.txt</span>'
+      + '<span class="file">skills</span><span class="file">links</span></div>';
+  }
+  function esc(s){
+    return (s||'').replace(/[&<>"]/g,function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];
+    });
+  }
+  function printPrompt(text){
+    var d = document.createElement('div');
+    d.className = 'histline';
+    d.innerHTML = '<span class="prompt">simon@arch <span class="arr">&#10095;</span> </span><span class="hcmd"></span>';
+    d.querySelector('.hcmd').textContent = text;
+    output.appendChild(d);
+  }
+  function printResult(html){
+    var d = document.createElement('div');
+    d.className = 'result';
+    d.innerHTML = html;
+    output.appendChild(d);
+  }
+
+  var history = [], hi = 0;
+
+  function run(raw){
+    var line = (raw||'').trim();
+    printPrompt(line);
+    if(line){ history.push(line); }
+    hi = history.length;
+    if(line !== ''){
+      var parts = line.split(/\s+/);
+      var cmd = parts[0].toLowerCase();
+      var key = ALIAS[cmd] || cmd;
+      if(key === 'clear'){ output.innerHTML = ''; }
+      else if(RUN[key]){ printResult(RUN[key](parts.slice(1))); }
+      else {
+        printResult('<span class="err">command not found: '+esc(cmd)+'</span><br>'
+          + '<span class="muted">type <span class="ok">help</span> to list commands</span>');
+      }
+    }
+    scrollDown();
+  }
+
+  function suggestion(v){
+    if(!v) return '';
+    var k = v.toLowerCase();
+    for(var i=0;i<SUGGEST.length;i++){
+      if(SUGGEST[i].indexOf(k)===0 && SUGGEST[i]!==k) return SUGGEST[i].slice(k.length);
+    }
+    return '';
+  }
+  function sync(){
+    var v = cli.value;
+    pad.textContent = v;
+    ghostEl.textContent = suggestion(v);
+  }
+  function caretEnd(){ cli.selectionStart = cli.selectionEnd = cli.value.length; }
+  function scrollDown(){ requestAnimationFrame(function(){ inputline.scrollIntoView({block:'nearest'}); }); }
+
+  cli.addEventListener('input', sync);
+  cli.addEventListener('focus', function(){ inputline.classList.add('on'); });
+  cli.addEventListener('blur', function(){ inputline.classList.remove('on'); });
+
+  cli.addEventListener('keydown', function(e){
+    var g = ghostEl.textContent;
+    if(e.key === 'Enter'){ var v = cli.value; cli.value = ''; sync(); run(v); }
+    else if(e.key === 'Tab'){ e.preventDefault(); if(g){ cli.value += g; sync(); } }
+    else if(e.key === 'ArrowRight'){ if(g && cli.selectionStart === cli.value.length){ e.preventDefault(); cli.value += g; sync(); } }
+    else if(e.key === 'ArrowUp'){ e.preventDefault(); if(hi>0){ hi--; cli.value = history[hi]||''; sync(); caretEnd(); } }
+    else if(e.key === 'ArrowDown'){ e.preventDefault(); if(hi<history.length){ hi++; cli.value = history[hi]||''; sync(); caretEnd(); } }
+    else if((e.key==='l'||e.key==='L') && e.ctrlKey){ e.preventDefault(); output.innerHTML=''; }
+    else if((e.key==='u'||e.key==='U') && e.ctrlKey){ e.preventDefault(); cli.value=''; sync(); }
+  });
+
+  screen.addEventListener('click', function(e){
+    if(e.target.closest('a')) return;
+    if(window.getSelection && String(window.getSelection())) return;
+    cli.focus();
+  });
+
+  printResult(tpl('tpl-neofetch'));
+  printResult('<span class="muted">type <span class="ok">help</span> for commands &middot; '
+    + '<span class="ok">theme</span> to rice it &middot; or just start typing</span>');
+  if(window.matchMedia && window.matchMedia('(hover:hover) and (pointer:fine)').matches){ cli.focus(); }
+})();
+
+/* ---------------- particle wave bands ---------------- */
+(function(){
+  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // rainbow stops: cyan -> electric blue -> indigo -> magenta -> pink -> amber -> teal (loops)
+  var PAL = [[0,229,255],[41,121,255],[124,77,255],[224,64,251],[255,64,129],[255,150,40],[29,233,182]];
+
+  function lerp(a,b,t){ return a+(b-a)*t; }
+  function colorAt(p){
+    var n = PAL.length, f = ((p%1)+1)%1*n, i = Math.floor(f), t = f-i;
+    var c0 = PAL[i%n], c1 = PAL[(i+1)%n];
+    return [lerp(c0[0],c1[0],t)|0, lerp(c0[1],c1[1],t)|0, lerp(c0[2],c1[2],t)|0];
+  }
+
+  function Wave(canvas, fadeDown){
+    var ctx = canvas.getContext && canvas.getContext('2d'); if(!ctx) return;
+    var W=0, H=0, dpr=1, gap=15, t0=performance.now(), raf=0;
+    function resize(){
+      dpr = Math.min(window.devicePixelRatio||1, 2);
+      W = canvas.clientWidth; H = canvas.clientHeight;
+      canvas.width = Math.max(1,W*dpr); canvas.height = Math.max(1,H*dpr);
+      ctx.setTransform(dpr,0,0,dpr,0,0);
+      gap = W < 560 ? 17 : 15;
+    }
+    function draw(now){
+      var t = (now - t0)/1000;
+      ctx.clearRect(0,0,W,H);
+      ctx.globalCompositeOperation = 'lighter';
+      var hueT = t*0.05;                       // slow march through the palette
+      for(var x=gap*0.5; x<W; x+=gap){
+        // base hue: mostly one colour, gentle spread toward the next
+        var col = colorAt(hueT + x*0.00028);
+        var r=col[0], g=col[1], b=col[2];
+        for(var y=gap*0.5; y<H; y+=gap){
+          // two travelling waves -> organic "thinking" pulse
+          var w = Math.sin(x*0.016 - t*1.5) + Math.sin((x*0.009 + y*0.03) - t*0.9);
+          var amp = (w*0.25 + 0.5);            // 0..1
+          if(amp < 0.04) continue;
+          var fade = fadeDown ? 1-(y/H) : (y/H);
+          fade = fade<0?0:fade; fade = fade*fade;
+          var a = amp*amp*fade*0.95;
+          if(a < 0.015) continue;
+          var rad = 0.9 + amp*2.0;
+          // halo
+          ctx.globalAlpha = a*0.30;
+          ctx.fillStyle = 'rgb('+r+','+g+','+b+')';
+          ctx.beginPath(); ctx.arc(x,y,rad*2.3,0,6.283); ctx.fill();
+          // core
+          ctx.globalAlpha = a;
+          ctx.beginPath(); ctx.arc(x,y,rad,0,6.283); ctx.fill();
+        }
+      }
+      ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = 'source-over';
+    }
+    function loop(now){ draw(now); raf = requestAnimationFrame(loop); }
+    resize();
+    if(reduce){ draw(2200); }
+    else{
+      raf = requestAnimationFrame(loop);
+      document.addEventListener('visibilitychange', function(){
+        if(document.hidden){ cancelAnimationFrame(raf); raf=0; }
+        else if(!raf){ t0 = performance.now(); raf = requestAnimationFrame(loop); }
+      });
+    }
+    var rt; window.addEventListener('resize', function(){ clearTimeout(rt); rt=setTimeout(function(){ resize(); if(reduce) draw(2200); }, 150); });
+  }
+
+  Wave(document.getElementById('wave-top'), true);
+  Wave(document.getElementById('wave-bot'), false);
+})();
+</script>
+
+</body>
+</html>
